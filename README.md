@@ -1,6 +1,6 @@
 # 🛡️ Sentinel-SRE-OpenEnv: Autonomous Incident Response
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
-[![Framework: OpenEnv](https://img.shields.io/badge/Meta Framework-OpenEnv Core-purple.svg)](https://github.com/facebookresearch/openenv)
+[![Framework: OpenEnv](https://img.shields.io/badge/Meta%20Framework-OpenEnv%20Core-purple.svg)](https://github.com/facebookresearch/openenv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Linting: Ruff](https://img.shields.io/badge/Linting-Ruff-orange.svg)](https://github.com/astral-sh/ruff)
 
