@@ -1,0 +1,37 @@
+# ─── SRE Incident Response Environment — OpenEnv Manifest ─────────────────────
+# Targets Hugging Face Spaces "CPU Basic" tier (2 vCPUs, 8 GB RAM).
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: sentinel-sre-agent
+version: "1.0.0"
+description: >
+  Autonomous SRE incident response RL environment.
+  Simulates three stratified scenarios — pod crash recovery (easy),
+  database index optimisation (medium), and dynamic server scaling under
+  a strict budget (hard) — with proportional grading and dense rewards.
+
+hardware:
+  tier: cpu-basic
+  max_vcpus: 2
+  max_ram_gb: 8
+
+server:
+  port: 8000
+  dockerfile: Dockerfile
+
+tasks:
+  - name: pod-restart
+    difficulty: easy
+    description: Parse alert logs and restart the failing pod to restore uptime.
+
+  - name: db-index-optimisation
+    difficulty: medium
+    description: Query slow-log, identify missing index, and execute optimisation SQL.
+
+  - name: dynamic-scaling
+    difficulty: hard
+    description: Provision servers to absorb 10× traffic spike within a $500 budget.
+
+  - name: bad-deployment-rollback
+    difficulty: extreme
+    description: Diagnose cascading 500 errors from auth-service, check deployment logs, and execute a rollback to the stable revision.
