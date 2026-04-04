@@ -1,9 +1,11 @@
+import asyncio
 import json
 import os
 import re
-import asyncio
 from collections.abc import AsyncGenerator
+from concurrent.futures import ThreadPoolExecutor
 
+from dotenv import load_dotenv
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
@@ -11,9 +13,12 @@ from server.core.deps import env_instance
 from sre_env.constants.prompts import SYSTEM_PROMPT
 from sre_env.models import SREAction
 
+load_dotenv()
+
 router = APIRouter()
 
 MAX_STEPS = 15
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
 def _extract_json(text: str) -> dict:
@@ -38,7 +43,7 @@ async def _run_agent(seed: int, custom_desc: str | None = None) -> AsyncGenerato
 
     api_base = os.getenv("API_BASE_URL")
     model_name = os.getenv("MODEL_NAME")
-    hf_token = os.getenv("HF_TOKEN", "dummy")
+    hf_token = os.getenv("HF_TOKEN")
 
     if not api_base or not model_name:
         yield _sse_event(
@@ -96,15 +101,25 @@ async def _run_agent(seed: int, custom_desc: str | None = None) -> AsyncGenerato
 
         yield _sse_event("log", {"type": "system", "text": f"── Step {step} ──────────────────────────"})
 
-        # Call LLM
+        # Call LLM (run in thread so we can yield heartbeats)
         yield _sse_event("log", {"type": "system", "text": "[AGENT] Thinking..."})
+        yield ": heartbeat\n\n"  # SSE comment keeps HF proxy alive
+
         try:
             history = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Context: {json.dumps(obs_dict)}"},
             ]
-            response = client.chat.completions.create(
-                model=model_name, messages=history, max_tokens=512, temperature=0.1
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                _executor,
+                lambda: client.chat.completions.create(
+                    model=model_name,
+                    messages=history,
+                    max_tokens=512,
+                    temperature=0.1,
+                    timeout=30,
+                ),
             )
             raw = response.choices[0].message.content.strip()
             action_dict = _extract_json(raw)
@@ -150,7 +165,7 @@ async def _run_agent(seed: int, custom_desc: str | None = None) -> AsyncGenerato
             },
         )
 
-        await asyncio.sleep(0.3)  # Small delay for visual effect
+        await asyncio.sleep(0.1)
 
     # --- Final score ---
     score = obs_dict.get("metadata", {}).get("grader_score", "N/A")
