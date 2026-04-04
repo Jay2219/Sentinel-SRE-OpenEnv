@@ -2156,7 +2156,7 @@ wheels = [
 [[package]]
 name = "sentinel-sre"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "huggingface-hub" },

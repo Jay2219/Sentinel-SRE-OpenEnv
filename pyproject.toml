@@ -15,8 +15,18 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
+[project.scripts]
+server = "server.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["server", "sre_env"]
+
 [tool.uv]
-package = false
+package = true
 
 [dependency-groups]
 dev = [
