@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel Hub | SRE Chaos Ops</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="hero-card">
+            <span class="badge" id="statusBadge">ENVIRONMENT READY</span>
+            <h1>Sentinel Hub</h1>
+            <p class="description">Live Chaos Console. Inject incidents and watch the autonomous agent resolve infrastructure failures in real-time.</p>
+            
+            <div class="scenario-grid">
+                <button class="scenario-btn active" data-seed="2" onclick="selectScenario(this)">
+                    <span class="scenario-icon">🟢</span>
+                    <span class="scenario-name">OOMKilled Pod</span>
+                    <span class="scenario-diff">Easy</span>
+                </button>
+                <button class="scenario-btn" data-seed="1" onclick="selectScenario(this)">
+                    <span class="scenario-icon">🟡</span>
+                    <span class="scenario-name">DB Index Missing</span>
+                    <span class="scenario-diff">Medium</span>
+                </button>
+                <button class="scenario-btn" data-seed="5" onclick="selectScenario(this)">
+                    <span class="scenario-icon">🔴</span>
+                    <span class="scenario-name">Traffic Spike</span>
+                    <span class="scenario-diff">Hard</span>
+                </button>
+                <button class="scenario-btn" data-seed="0" onclick="selectScenario(this)">
+                    <span class="scenario-icon">💀</span>
+                    <span class="scenario-name">Bad Deployment</span>
+                    <span class="scenario-diff">Extreme</span>
+                </button>
+            </div>
+
+            <div class="chaos-controls">
+                <input type="text" id="incidentInput" placeholder="Or describe a custom incident..." class="chaos-input">
+                <button onclick="triggerChaos()" id="chaosBtn" class="btn btn-primary">
+                    <span id="btnText">▶ Run Agent</span>
+                </button>
+            </div>
+
+            <div class="terminal-log" id="eventLog">
+                <div class="log-line system">[SYSTEM] Hub initialized. Select a scenario and click Run Agent.</div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <span class="stat-label">Uptime</span>
+                    <span class="stat-value" id="statUptime">100%</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Budget</span>
+                    <span class="stat-value" id="statBudget">$500</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Steps</span>
+                    <span class="stat-value" id="statSteps">0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Grade</span>
+                    <span class="stat-value" id="statGrade">—</span>
+                </div>
+            </div>
+
+            <div class="actions">
+                <a href="/docs" target="_blank" class="btn btn-outline">Swagger API</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedSeed = 2;
+        let running = false;
+        let stepCount = 0;
+
+        function selectScenario(btn) {
+            if (running) return;
+            document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedSeed = parseInt(btn.dataset.seed);
+            document.getElementById('incidentInput').value = '';
+        }
+
+        function appendLog(type, text) {
+            const log = document.getElementById('eventLog');
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = text;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+
+            if (text.startsWith('[ACTION]')) {
+                stepCount++;
+                document.getElementById('statSteps').textContent = stepCount;
+            }
+        }
+
+        function triggerChaos() {
+            if (running) return;
+            running = true;
+            stepCount = 0;
+
+            const btn = document.getElementById('chaosBtn');
+            const badge = document.getElementById('statusBadge');
+            btn.disabled = true;
+            document.getElementById('btnText').textContent = '⏳ Agent Running...';
+            badge.textContent = 'AGENT ACTIVE';
+            badge.classList.add('active');
+
+            document.getElementById('eventLog').innerHTML = '';
+            document.getElementById('statSteps').textContent = '0';
+            document.getElementById('statGrade').textContent = '—';
+            document.getElementById('statUptime').textContent = '...';
+            document.getElementById('statBudget').textContent = '...';
+
+            const customDesc = document.getElementById('incidentInput').value.trim();
+            let url = `/api/run_agent?seed=${selectedSeed}`;
+            if (customDesc) {
+                url += `&custom_desc=${encodeURIComponent(customDesc)}`;
+            }
+
+            const source = new EventSource(url);
+
+            source.addEventListener('log', (e) => {
+                const data = JSON.parse(e.data);
+                appendLog(data.type, data.text);
+            });
+
+            source.addEventListener('stats', (e) => {
+                const data = JSON.parse(e.data);
+                document.getElementById('statUptime').textContent = data.uptime;
+                document.getElementById('statBudget').textContent = data.budget;
+            });
+
+            source.addEventListener('task', (e) => {
+                const data = JSON.parse(e.data);
+                appendLog('user', `📋 TASK: ${data.description}`);
+            });
+
+            source.addEventListener('done', (e) => {
+                const data = JSON.parse(e.data);
+                document.getElementById('statGrade').textContent = data.score;
+                source.close();
+                running = false;
+                btn.disabled = false;
+                document.getElementById('btnText').textContent = '▶ Run Agent';
+                badge.textContent = 'EPISODE COMPLETE';
+                badge.classList.remove('active');
+            });
+
+            source.onerror = () => {
+                appendLog('alert', '[ERROR] Connection lost to server.');
+                source.close();
+                running = false;
+                btn.disabled = false;
+                document.getElementById('btnText').textContent = '▶ Run Agent';
+                badge.textContent = 'ERROR';
+                badge.classList.remove('active');
+            };
+        }
+    </script>
+</body>
+</html>

@@ -1,9 +1,18 @@
-import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+import os
 
-from server.api.routes import environment
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.requests import Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from server.api.routes import agent, environment
 from server.core.deps import env_server
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv()
 
 app = FastAPI(
     title="SRE Incident Response Environment",
@@ -11,11 +20,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Standard endpoints (OpenEnv framework)
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
+@app.get("/", response_class=HTMLResponse, tags=["UI"])
+async def root(request: Request):
+    """Aesthetic landing page for the Hugging Face Space."""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+# OpenEnv standard endpoints
 env_server.register_routes(app)
 
-# Custom extensions
+# SRE Chaos extensions
 app.include_router(environment.router, tags=["SRE Chaos"])
+
+# Live agent runner (SSE)
+app.include_router(agent.router, tags=["Agent"])
 
 
 @app.get("/health", tags=["Utilities"])
