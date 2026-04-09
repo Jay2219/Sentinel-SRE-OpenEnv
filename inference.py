@@ -25,14 +25,13 @@ TIMEOUT_MINUTES = 18
 
 
 def main():
-    # Non-interactive mode: auto-select Easy (seed=2)
     client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
     env = SREEnvironment()
 
-    print("🛡️ Sentinel-SRE Autonomous Agent")
-    print("Running in automated mode (seed=2, Easy)...\n")
+    # ── [START] ──
+    print("[START]")
+    print(json.dumps({"agent": "sentinel-sre", "mode": "automated", "seed": 2}))
 
-    # Reset environment directly (no HTTP)
     obs = env.reset(seed=2)
     obs_dict = obs.model_dump()
     done = obs_dict.get("done", False)
@@ -42,22 +41,17 @@ def main():
     start_time = time.time()
 
     task = obs_dict.get("task_description", "N/A")
-    audit_trail = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "task_description": task,
-        "trajectory": [],
-    }
-
-    print(f"📋 Task: {task}")
+    print(json.dumps({"task_description": task}))
 
     while not done and step_count < MAX_STEPS:
         if (time.time() - start_time) / 60 > TIMEOUT_MINUTES:
-            print("⏰ Timeout Reached!")
+            print("[STEP]")
+            print(json.dumps({"error": "timeout", "step": step_count}))
             break
 
         step_count += 1
-        print(f"\n── Step {step_count} ──")
 
+        # ── [STEP] ──
         try:
             history = [
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -69,51 +63,54 @@ def main():
             raw_content = response.choices[0].message.content.strip()
             action_dict = extract_json(raw_content)
         except Exception as e:
-            print(f"❌ LLM/Parse Error: {e}")
+            print("[STEP]")
+            print(json.dumps({"error": str(e), "step": step_count}))
             break
 
-        cmd_type = action_dict.get("command_type", "UNKNOWN")
-        target = action_dict.get("target_resource", "UNKNOWN")
-        print(f"  🚀 Action: {cmd_type} on {target}")
-
-        # Step environment directly (no HTTP)
         action = SREAction(**action_dict)
         obs = env.step(action)
         obs_dict = obs.model_dump()
 
-        prev_reward = total_reward
         reward = obs_dict.get("reward", 0.0) or 0.0
         done = obs_dict.get("done", False)
         total_reward += reward
 
-        audit_trail["trajectory"].append({
+        print("[STEP]")
+        print(json.dumps({
             "step": step_count,
             "action": action_dict,
+            "observation": {
+                "message": obs_dict.get("message", ""),
+                "success": obs_dict.get("success", False),
+            },
             "reward": reward,
-            "observation_out": obs_dict,
-        })
+            "total_reward": total_reward,
+            "done": done,
+        }))
 
-        msg = obs_dict.get("message", "")
-        print(f"  ► Result: {msg}")
-        print(f"  ► Reward: {reward:+.3f} | Total: {total_reward:+.3f}")
-
-    # Extract final score
-    score = obs_dict.get("metadata", {}).get("grader_score", "N/A")
+    # ── [END] ──
+    score = obs_dict.get("metadata", {}).get("grader_score", None)
     final_msg = obs_dict.get("message", "")
     if "GRADER_SCORE:" in final_msg:
         try:
-            score = final_msg.split("GRADER_SCORE: ")[1].split("]")[0]
+            score = float(final_msg.split("GRADER_SCORE: ")[1].split("]")[0])
         except Exception:
             pass
 
-    print(f"\n{'='*40}")
-    print(f"Final Grade: {score}")
-    print(f"Total Steps: {step_count}")
-    print(f"{'='*40}")
+    print("[END]")
+    print(json.dumps({
+        "total_steps": step_count,
+        "total_reward": total_reward,
+        "grader_score": score,
+    }))
 
     with open("agent_trace.json", "w") as f:
-        json.dump(audit_trail, f, indent=2)
-    print("Audit trail saved to agent_trace.json")
+        json.dump({
+            "timestamp": datetime.utcnow().isoformat(),
+            "task_description": task,
+            "total_steps": step_count,
+            "grader_score": score,
+        }, f, indent=2)
 
 
 if __name__ == "__main__":
