@@ -21,18 +21,29 @@ MODEL_NAME = os.getenv("MODEL_NAME")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 MAX_STEPS = 30
-TIMEOUT_MINUTES = 18
+TIMEOUT_MINUTES = 5
+
+# Tasks the validator will evaluate: (name, seed)
+TASKS = [
+    ("pod-restart", 2),       # Easy
+    ("db-index-optimisation", 1),  # Medium
+    ("dynamic-scaling", 5),   # Hard
+]
 
 
-def main():
-    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
+def clamp_score(score):
+    """Clamp score to strictly (0, 1) — never exactly 0.0 or 1.0."""
+    if score is None:
+        return 0.01
+    score = float(score)
+    return max(0.01, min(0.99, score))
+
+
+def run_task(client, task_name, seed):
+    """Run a single task episode and emit [STEP] blocks."""
     env = SREEnvironment()
 
-    # ── [START] ──
-    print("[START]")
-    print(json.dumps({"agent": "sentinel-sre", "mode": "automated", "seed": 2}))
-
-    obs = env.reset(seed=2)
+    obs = env.reset(seed=seed)
     obs_dict = obs.model_dump()
     done = obs_dict.get("done", False)
 
@@ -40,18 +51,14 @@ def main():
     step_count = 0
     start_time = time.time()
 
-    task = obs_dict.get("task_description", "N/A")
-    print(json.dumps({"task_description": task}))
+    task_desc = obs_dict.get("task_description", "N/A")
 
     while not done and step_count < MAX_STEPS:
         if (time.time() - start_time) / 60 > TIMEOUT_MINUTES:
-            print("[STEP]")
-            print(json.dumps({"error": "timeout", "step": step_count}))
             break
 
         step_count += 1
 
-        # ── [STEP] ──
         try:
             history = [
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -64,7 +71,7 @@ def main():
             action_dict = extract_json(raw_content)
         except Exception as e:
             print("[STEP]")
-            print(json.dumps({"error": str(e), "step": step_count}))
+            print(json.dumps({"task": task_name, "error": str(e), "step": step_count}))
             break
 
         action = SREAction(**action_dict)
@@ -77,6 +84,7 @@ def main():
 
         print("[STEP]")
         print(json.dumps({
+            "task": task_name,
             "step": step_count,
             "action": action_dict,
             "observation": {
@@ -88,7 +96,7 @@ def main():
             "done": done,
         }))
 
-    # ── [END] ──
+    # Extract and clamp grader score
     score = obs_dict.get("metadata", {}).get("grader_score", None)
     final_msg = obs_dict.get("message", "")
     if "GRADER_SCORE:" in final_msg:
@@ -97,19 +105,44 @@ def main():
         except Exception:
             pass
 
-    print("[END]")
-    print(json.dumps({
+    return {
+        "task": task_name,
+        "seed": seed,
+        "task_description": task_desc,
         "total_steps": step_count,
         "total_reward": total_reward,
-        "grader_score": score,
+        "grader_score": clamp_score(score),
+    }
+
+
+def main():
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
+
+    print("[START]")
+    print(json.dumps({
+        "agent": "sentinel-sre",
+        "mode": "automated",
+        "tasks": [t[0] for t in TASKS],
+    }))
+
+    results = []
+    for task_name, seed in TASKS:
+        result = run_task(client, task_name, seed)
+        results.append(result)
+
+    print("[END]")
+    print(json.dumps({
+        "tasks": results,
+        "summary": {
+            "total_tasks": len(results),
+            "scores": {r["task"]: r["grader_score"] for r in results},
+        },
     }))
 
     with open("agent_trace.json", "w") as f:
         json.dump({
             "timestamp": datetime.utcnow().isoformat(),
-            "task_description": task,
-            "total_steps": step_count,
-            "grader_score": score,
+            "tasks": results,
         }, f, indent=2)
 
 
