@@ -41,6 +41,9 @@ def clamp_score(score):
 
 def run_task(client, task_name, seed):
     """Run a single task episode and emit [STEP] blocks."""
+    print("[START]")
+    print(json.dumps({"task": task_name, "seed": seed}))
+
     env = SREEnvironment()
 
     obs = env.reset(seed=seed)
@@ -105,39 +108,32 @@ def run_task(client, task_name, seed):
         except Exception:
             pass
 
+    clamped_score = clamp_score(score)
+    print("[END]")
+    print(json.dumps({
+        "task": task_name,
+        "total_steps": step_count,
+        "total_reward": total_reward,
+        "grader_score": clamped_score,
+    }))
+
     return {
         "task": task_name,
         "seed": seed,
         "task_description": task_desc,
         "total_steps": step_count,
         "total_reward": total_reward,
-        "grader_score": clamp_score(score),
+        "grader_score": clamped_score,
     }
 
 
 def main():
     client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
 
-    print("[START]")
-    print(json.dumps({
-        "agent": "sentinel-sre",
-        "mode": "automated",
-        "tasks": [t[0] for t in TASKS],
-    }))
-
     results = []
     for task_name, seed in TASKS:
         result = run_task(client, task_name, seed)
         results.append(result)
-
-    print("[END]")
-    print(json.dumps({
-        "tasks": results,
-        "summary": {
-            "total_tasks": len(results),
-            "scores": {r["task"]: r["grader_score"] for r in results},
-        },
-    }))
 
     with open("agent_trace.json", "w") as f:
         json.dump({
