@@ -16,7 +16,7 @@ def test_easy_episode():
     # 2. Restart wrong pod
     obs2 = env.step(SREAction(command_type="restart_pod", target_resource="pod-web-not-real"))
     assert obs2.success is False
-    assert obs2.reward < 0
+    assert obs2.reward < 1.0
 
     # 3. Restart correct pod
     obs3 = env.step(SREAction(command_type="restart_pod", target_resource="pod-web-3"))

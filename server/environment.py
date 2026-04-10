@@ -186,7 +186,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
                 message=f"❌ Action '{action.command_type}' is invalid or not currently available. Available: {', '.join(valid_actions)}",
                 logs=["[ERROR] Action rejected by environment schema."],
                 success=False,
-                reward=time_penalty - 0.1,
+                reward=0.01,
                 done=False,
             )
 
@@ -232,7 +232,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             message=message,
             logs=logs,
             success=success,
-            reward=step_reward,
+            reward=max(0.01, min(0.99, float(step_reward))),
             done=done,
         )
 
@@ -690,7 +690,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             )
             score = self.rubric(None, temp_obs)
             metadata["grader_score"] = score
-            metadata["total_accumulated_reward"] = self._state.total_reward
+            metadata["total_accumulated_reward"] = max(0.01, min(0.99, float(self._state.total_reward)))
 
             message = f"{message} [GRADER_SCORE: {score:.3f}]"
 

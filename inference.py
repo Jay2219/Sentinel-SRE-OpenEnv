@@ -95,8 +95,8 @@ def run_task(client, task_name, seed):
                 "message": obs_dict.get("message", ""),
                 "success": obs_dict.get("success", False),
             },
-            "reward": reward,
-            "total_reward": total_reward,
+            "reward": clamp_score(reward),
+            "total_reward": clamp_score(total_reward),
             "done": done,
         }))
 
