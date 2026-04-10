@@ -25,9 +25,10 @@ TIMEOUT_MINUTES = 5
 
 # Tasks the validator will evaluate: (name, seed)
 TASKS = [
-    ("pod-restart", 2),       # Easy
+    ("pod-restart", 2),            # Easy
     ("db-index-optimisation", 1),  # Medium
-    ("dynamic-scaling", 5),   # Hard
+    ("dynamic-scaling", 5),        # Hard
+    ("bad-deployment-rollback", 0),# Extreme
 ]
 
 
