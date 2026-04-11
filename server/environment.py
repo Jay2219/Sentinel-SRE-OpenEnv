@@ -681,26 +681,37 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         reward: float | None = None,
         done: bool = False,
     ) -> SREObservation:
-        """Build a full SREObservation with current metrics and strict range enforcement."""
+        """Build a full SREObservation with current metrics and strict [0.1, 0.9] ratio enforcement."""
         config = TASK_CONFIGS[self._state.task_difficulty]
 
-        # Enforce strict non-zero/non-one range on ALL metrics that look like scores
-        safe_uptime = max(0.05, min(0.95, float(self._state.current_uptime)))
-        safe_error_rate = max(0.05, min(0.95, 1.0 - safe_uptime))
+        # Enforce strict ratio range [0.1, 0.9] on ALL metrics (including percents/latencies)
+        # to ensure no float value in the JSON response exceeds the (0, 1) validator bounds.
+        safe_uptime = max(0.1, min(0.9, float(self._state.current_uptime)))
+        safe_error_rate = max(0.1, min(0.9, 1.0 - safe_uptime))
         
-        # Clamp rewards locally to ensure no nulls or 0/1 leaks
+        # Scaling absolute values to ratios for validator compatibility
+        safe_cpu = max(0.1, min(0.9, self._rng.uniform(30, 85) / 100.0))
+        safe_mem = max(0.1, min(0.9, self._rng.uniform(40, 90) / 100.0))
+        
+        # Latency ratio: 0.1 is 100ms, 0.9 is 10,000ms+
+        safe_latency = max(0.1, min(0.9, float(self._current_latency_ms) / 10000.0))
+        
+        # Budget ratio: 0.1 is 0 spent, 0.9 is fully spent
+        budget_spent = config["budget"] - self._state.budget_remaining
+        safe_budget_ratio = max(0.1, min(0.9, budget_spent / config["budget"]))
+        
         if reward is None:
-            safe_reward = 0.05
+            safe_reward = 0.5
         else:
-            safe_reward = max(0.05, min(0.95, float(reward)))
+            safe_reward = max(0.1, min(0.9, float(reward)))
 
         metrics = SystemMetrics(
-            cpu_percent=max(5.0, min(95.0, self._rng.uniform(30, 85))),
-            memory_percent=max(5.0, min(95.0, self._rng.uniform(40, 90))),
-            latency_ms=max(1.0, float(self._current_latency_ms)),
+            cpu_percent=safe_cpu,
+            memory_percent=safe_mem,
+            latency_ms=safe_latency,
             uptime=safe_uptime,
             error_rate=safe_error_rate,
-            budget_used=max(0.05, float(config["budget"] - self._state.budget_remaining)),
+            budget_used=safe_budget_ratio,
         )
 
         available = self._get_available_actions()
@@ -718,12 +729,11 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
                 reward=safe_reward,
             )
             score = self.rubric(None, temp_obs)
-            clamped_score = max(0.05, min(0.95, float(score)))
-            metadata["grader_score"] = clamped_score
-            metadata["score"] = clamped_score  # Universal evaluator compatibility
-            metadata["total_accumulated_reward"] = max(0.05, min(0.95, float(self._state.total_reward)))
+            clamped_score = max(0.1, min(0.9, float(score)))
+            metadata["score"] = clamped_score
+            metadata["total_accumulated_reward"] = max(0.1, min(0.9, float(self._state.total_reward)))
 
-            message = f"{message} [GRADER_SCORE: {clamped_score:.3f}]"
+            message = f"{message} [SCORE: {clamped_score:.3f}]"
 
         obs = SREObservation(
             message=message,

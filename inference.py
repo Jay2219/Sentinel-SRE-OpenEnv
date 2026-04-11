@@ -117,7 +117,6 @@ def run_task(client, task_name, seed):
         "task": task_name,
         "total_steps": step_count,
         "total_reward": clamped_reward,
-        "grader_score": clamped_score,
         "score": clamped_score,
     }))
 
@@ -127,7 +126,6 @@ def run_task(client, task_name, seed):
         "task_description": task_desc,
         "total_steps": step_count,
         "total_reward": clamped_reward,
-        "grader_score": clamped_score,
         "score": clamped_score,
     }
 
