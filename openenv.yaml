@@ -21,21 +21,21 @@ server:
 
 tasks:
   - name: pod-restart
-    evaluator: server.rubrics.SREGraderRubric
+    evaluator: server.rubrics.PodRestartRubric
     difficulty: easy
     description: Parse alert logs and restart the failing pod to restore uptime.
 
   - name: db-index-optimisation
-    evaluator: server.rubrics.SREGraderRubric
+    evaluator: server.rubrics.DBIndexRubric
     difficulty: medium
     description: Query slow-log, identify missing index, and execute optimisation SQL.
 
   - name: dynamic-scaling
-    evaluator: server.rubrics.SREGraderRubric
+    evaluator: server.rubrics.ScalingRubric
     difficulty: hard
     description: Provision servers to absorb 10× traffic spike within a $500 budget.
 
   - name: bad-deployment-rollback
-    evaluator: server.rubrics.SREGraderRubric
+    evaluator: server.rubrics.RollbackRubric
     difficulty: extreme
     description: Diagnose cascading 500 errors from auth-service, check deployment logs, and execute a rollback to the stable revision.
