@@ -23,6 +23,7 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
+
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 async def root(request: Request):
     """Aesthetic landing page for the Hugging Face Space."""
