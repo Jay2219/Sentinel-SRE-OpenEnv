@@ -9,6 +9,29 @@ def _clamp(score: float) -> float:
     """Clamp score to strictly (0, 1) — never exactly 0.0 or 1.0. Hardened to prevent rounded 1.0s."""
     return max(0.05, min(0.95, float(score)))
 
+def _extract_metric(observation: Any, key: str, default: float) -> float:
+    """Safely extract a metric from either a Pydantic object or a generic nested dictionary."""
+    if not observation:
+        return default
+        
+    if isinstance(observation, dict):
+        metrics = observation.get("metrics", {})
+        if isinstance(metrics, dict) and key in metrics:
+            return float(metrics[key])
+        return float(default)
+        
+    metrics = getattr(observation, "metrics", None)
+    if not metrics:
+        return float(default)
+        
+    if isinstance(metrics, dict) and key in metrics:
+        return float(metrics[key])
+    
+    val = getattr(metrics, key, None)
+    if val is not None:
+        return float(val)
+
+    return float(default)
 
 class PodRestartRubric(Rubric):
     def __init__(self, env: Any = None) -> None:
@@ -17,8 +40,8 @@ class PodRestartRubric(Rubric):
 
     def forward(self, action: Any, observation: Any) -> float:
         try:
-            metrics = getattr(observation, "metrics", None)
-            current_uptime = metrics.uptime if metrics else (self._env.state.current_uptime if self._env else 0.0)
+            fallback = self._env.state.current_uptime if self._env else 0.0
+            current_uptime = _extract_metric(observation, "uptime", fallback)
             return _clamp(current_uptime / 0.95)
         except Exception:
             return 0.05
@@ -35,8 +58,8 @@ class DBIndexRubric(Rubric):
             baseline = config["initial_latency_ms"]
             target = config["target_latency_ms"]
 
-            metrics = getattr(observation, "metrics", None)
-            current = metrics.latency_ms if metrics else (self._env._current_latency_ms if self._env else baseline)
+            fallback = self._env._current_latency_ms if self._env else baseline
+            current = _extract_metric(observation, "latency_ms", fallback)
 
             if current <= target:
                 return 0.95
@@ -55,16 +78,15 @@ class ScalingRubric(Rubric):
         try:
             from server.environment import TASK_CONFIGS
             config = TASK_CONFIGS[TaskDifficulty.HARD]
-            metrics = getattr(observation, "metrics", None)
 
-            current_uptime = metrics.uptime if metrics else (self._env.state.current_uptime if self._env else 0.0)
+            uptime_fallback = self._env.state.current_uptime if self._env else 0.0
+            current_uptime = _extract_metric(observation, "uptime", uptime_fallback)
             
             if self._env:
                 budget_remaining = self._env.state.budget_remaining
-            elif metrics:
-                budget_remaining = config["budget"] - metrics.budget_used
             else:
-                budget_remaining = 0.0
+                raw_used = _extract_metric(observation, "budget_used", 0.0)
+                budget_remaining = config["budget"] - raw_used
                 
             if self._env:
                 step_ratio = self._env.state.step_count / self._env.state.max_steps
@@ -86,8 +108,8 @@ class RollbackRubric(Rubric):
 
     def forward(self, action: Any, observation: Any) -> float:
         try:
-            metrics = getattr(observation, "metrics", None)
-            current_uptime = metrics.uptime if metrics else (self._env.state.current_uptime if self._env else 0.0)
+            uptime_fallback = self._env.state.current_uptime if self._env else 0.0
+            current_uptime = _extract_metric(observation, "uptime", uptime_fallback)
             
             if self._env:
                 step_ratio = self._env.state.step_count / self._env.state.max_steps
