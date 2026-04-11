@@ -6,8 +6,8 @@ from sre_env.models import TaskDifficulty
 
 
 def _clamp(score: float) -> float:
-    """Clamp score to strictly (0, 1) — never exactly 0.0 or 1.0."""
-    return max(0.01, min(0.99, score))
+    """Clamp score to strictly (0, 1) — never exactly 0.0 or 1.0. Hardened to prevent rounded 1.0s."""
+    return max(0.05, min(0.95, float(score)))
 
 
 class SREGraderRubric(Rubric):

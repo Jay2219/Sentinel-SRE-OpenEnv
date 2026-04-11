@@ -35,9 +35,9 @@ TASKS = [
 def clamp_score(score):
     """Clamp score to strictly (0, 1) — never exactly 0.0 or 1.0."""
     if score is None:
-        return 0.01
+        return 0.05
     score = float(score)
-    return max(0.01, min(0.99, score))
+    return max(0.05, min(0.95, score))
 
 
 def run_task(client, task_name, seed):
