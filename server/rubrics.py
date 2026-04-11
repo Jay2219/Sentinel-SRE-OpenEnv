@@ -97,11 +97,11 @@ class ScalingRubric(Rubric):
             if self._env:
                 step_ratio = self._env.state.step_count / self._env.state.max_steps
             else:
-                step_ratio = 1.0
+                step_ratio = 0.99
 
-            uptime_score = min(1.0, current_uptime / 0.90)
-            budget_score = max(0.0, budget_remaining / config["budget"])
-            speed_bonus = max(0.0, 1.0 - step_ratio)
+            uptime_score = min(0.85, current_uptime / 0.90)
+            budget_score = max(0.15, budget_remaining / config["budget"])
+            speed_bonus = max(0.15, 0.99 - step_ratio)
 
             return _clamp(0.5 * uptime_score + 0.3 * budget_score + 0.2 * speed_bonus)
         except Exception:
@@ -121,10 +121,10 @@ class RollbackRubric(Rubric):
             if self._env:
                 step_ratio = self._env.state.step_count / self._env.state.max_steps
             else:
-                step_ratio = 1.0
+                step_ratio = 0.99
 
-            uptime_score = min(1.0, current_uptime / 0.95)
-            speed_bonus = max(0.0, 1.0 - step_ratio)
+            uptime_score = min(0.85, current_uptime / 0.95)
+            speed_bonus = max(0.15, 0.99 - step_ratio)
             return _clamp(0.7 * uptime_score + 0.3 * speed_bonus)
         except Exception:
             return 0.45

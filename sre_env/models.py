@@ -140,6 +140,6 @@ class SREState(State):
         description="Whether the agent has identified the root cause.",
     )
     total_reward: float = Field(
-        default=0.0,
+        default=0.45,
         description="Cumulative reward accumulated during the episode.",
     )

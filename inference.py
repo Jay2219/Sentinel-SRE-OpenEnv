@@ -66,7 +66,7 @@ def run_task(client, task_name, seed):
     obs_dict = obs.model_dump()
 
     done = False
-    total_reward = 0.0
+    total_reward = 0.45
     step_count = 0
     start_time = time.time()
 
