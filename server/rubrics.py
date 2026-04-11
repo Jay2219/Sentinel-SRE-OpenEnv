@@ -11,22 +11,27 @@ def _clamp(score: float) -> float:
 
 
 class SREGraderRubric(Rubric):
-    def __init__(self, env: Any) -> None:
+    def __init__(self, env: Any = None) -> None:
         super().__init__()
         self._env = env
 
     def forward(self, action: Any, observation: Any) -> float:
-        difficulty = self._env.state.task_difficulty
+        try:
+            difficulty = self._env.state.task_difficulty
 
-        if difficulty == TaskDifficulty.EASY:
-            return self._grade_easy()
-        elif difficulty == TaskDifficulty.MEDIUM:
-            return self._grade_medium()
-        elif difficulty == TaskDifficulty.HARD:
-            return self._grade_hard()
-        elif difficulty == TaskDifficulty.EXTREME:
-            return self._grade_extreme()
-        return 0.01
+            if difficulty == TaskDifficulty.EASY:
+                return self._grade_easy()
+            elif difficulty == TaskDifficulty.MEDIUM:
+                return self._grade_medium()
+            elif difficulty == TaskDifficulty.HARD:
+                return self._grade_hard()
+            elif difficulty == TaskDifficulty.EXTREME:
+                return self._grade_extreme()
+            return 0.01
+        except Exception:
+            # Safely catch stateless OpenEnv evaluator invocations
+            # and guarantee boundary limits.
+            return 0.01
 
     def _grade_easy(self) -> float:
         """Proportional to restored uptime (target ≥ 0.95)."""
