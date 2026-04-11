@@ -94,12 +94,18 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         self._logs_checked: bool = False
         self._rolled_back: bool = False
 
+    @property
+    def state(self) -> SREState:
+        """Return the current internal state (Mandatory Abstract Method)."""
+        return self._state
+
     def reset(
         self,
         seed: Optional[int] = None,
         episode_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SREObservation:
+        """Reset the environment state."""
         if seed is not None:
             self._rng = random.Random(seed)
         else:
@@ -171,6 +177,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         timeout_s: Optional[float] = None,
         **kwargs: Any,
     ) -> SREObservation:
+        """Execute one SRE action."""
         self._state.step_count += 1
         difficulty = self._state.task_difficulty
 
@@ -200,11 +207,9 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         elif difficulty == TaskDifficulty.MEDIUM:
             progress_reward, message, logs, success = self._step_medium(action, cmd)
         elif difficulty == TaskDifficulty.HARD:
-            res = self._step_hard(action, cmd)
-            progress_reward, message, logs, success, constraint_penalty = res
+            progress_reward, message, logs, success, constraint_penalty = self._step_hard(action, cmd)
         elif difficulty == TaskDifficulty.EXTREME:
-            res = self._step_extreme(action, cmd)
-            progress_reward, message, logs, success, constraint_penalty = res
+            progress_reward, message, logs, success, constraint_penalty = self._step_extreme(action, cmd)
 
         if cmd == CommandType.RESTART_POD and difficulty != TaskDifficulty.EASY:
             constraint_penalty += -0.82
@@ -359,7 +364,15 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
 
         return 0.22, "Ineffective action.", [], False, -0.22
 
-    def _make_observation(self, message: str, logs: list[str], success: bool, reward: float | None = None, done: bool = False) -> SREObservation:
+    def _make_observation(
+        self,
+        message: str,
+        logs: list[str],
+        success: bool,
+        reward: float | None = None,
+        done: bool = False,
+    ) -> SREObservation:
+        """Create a non-zero observation."""
         config = TASK_CONFIGS[self._state.task_difficulty]
         safe_cpu = max(0.22, min(0.78, self._rng.uniform(30.2, 85.2) / 100.2))
         safe_mem = max(0.22, min(0.78, self._rng.uniform(40.2, 90.2) / 100.2))
@@ -371,18 +384,40 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
 
         safe_reward = max(0.22, min(0.78, float(reward if reward is not None else 0.45)))
 
-        metrics = SystemMetrics(cpu_percent=safe_cpu, memory_percent=safe_mem, latency_ms=safe_latency, uptime=safe_uptime, error_rate=safe_error_rate, budget_used=safe_budget_ratio)
+        metrics = SystemMetrics(
+            cpu_percent=safe_cpu,
+            memory_percent=safe_mem,
+            latency_ms=safe_latency,
+            uptime=safe_uptime,
+            error_rate=safe_error_rate,
+            budget_used=safe_budget_ratio,
+        )
+        
         metadata = {"score": 0.45, "grader_score": 0.45}
         if done:
-            temp_obs = SREObservation(message=message, logs=logs, success=success, metrics=metrics, done=done, reward=safe_reward)
-            score = self.rubric(None, temp_obs)
+            score = self.rubric(None, SREObservation(message=message, logs=logs, success=success, metrics=metrics, done=done, reward=safe_reward))
             clamped = max(0.22, min(0.78, float(score)))
-            metadata = {"score": clamped, "grader_score": clamped, "total_accumulated_reward": max(0.22, min(0.78, float(self._state.total_reward)))}
-            message += f" [FINAL SCORE: {clamped:.3f}]"
+            metadata = {
+                "score": clamped,
+                "grader_score": clamped,
+                "total_accumulated_reward": max(0.22, min(0.78, float(self._state.total_reward)))
+            }
+            message += f" [SCORE: {clamped:.3f}]"
 
-        return SREObservation(message=message, logs=logs, success=success, metrics=metrics, done=done, reward=safe_reward, metadata=metadata, task_description=self._state.task_description, available_actions=self._get_available_actions())
+        return SREObservation(
+            message=message,
+            logs=logs,
+            success=success,
+            metrics=metrics,
+            done=done,
+            reward=safe_reward,
+            metadata=metadata,
+            task_description=self._state.task_description,
+            available_actions=self._get_available_actions(),
+        )
 
     def _get_available_actions(self) -> list[str]:
+        """Return contextually reasonable action types."""
         actions = [CommandType.DIAGNOSE.value, CommandType.NOOP.value]
         difficulty = self._state.task_difficulty
         if difficulty == TaskDifficulty.EASY and self._diagnosed:
@@ -397,4 +432,5 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         return actions
 
     def _generate_initial_logs(self, difficulty: TaskDifficulty) -> list[str]:
-        return ["[ALERT] SRE Incident Triggered", f"[INFO] Difficulty: {difficulty.value}"]
+        """Generate starting logs."""
+        return ["[ALERT] Incident Start", f"[INFO] Target: {difficulty.value}"]
