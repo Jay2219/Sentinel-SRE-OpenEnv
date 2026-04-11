@@ -6,8 +6,8 @@ from sre_env.models import TaskDifficulty
 
 
 def _clamp(score: float) -> float:
-    """Clamp score to strictly (0, 1) — never exactly 0.0 or 1.0. Hardened to prevent rounded 1.0s."""
-    return max(0.05, min(0.95, float(score)))
+    """Clamp score to strictly within (0, 1) with high buffer — never exactly 0.0 or 1.0."""
+    return max(0.1, min(0.9, float(score)))
 
 def _extract_metric(observation: Any, key: str, default: float) -> float:
     """Safely extract a metric from either a Pydantic object or a generic nested dictionary."""
@@ -40,11 +40,11 @@ class PodRestartRubric(Rubric):
 
     def forward(self, action: Any, observation: Any) -> float:
         try:
-            fallback = self._env.state.current_uptime if self._env else 0.0
+            fallback = self._env.state.current_uptime if self._env else 0.5
             current_uptime = _extract_metric(observation, "uptime", fallback)
             return _clamp(current_uptime / 0.95)
         except Exception:
-            return 0.05
+            return 0.5
 
 class DBIndexRubric(Rubric):
     def __init__(self, env: Any = None) -> None:
@@ -62,12 +62,12 @@ class DBIndexRubric(Rubric):
             current = _extract_metric(observation, "latency_ms", fallback)
 
             if current <= target:
-                return 0.95
+                return 0.9
 
             improvement_ratio = (baseline - current) / (baseline - target)
             return _clamp(improvement_ratio)
         except Exception:
-            return 0.05
+            return 0.5
 
 class ScalingRubric(Rubric):
     def __init__(self, env: Any = None) -> None:
@@ -79,13 +79,13 @@ class ScalingRubric(Rubric):
             from server.environment import TASK_CONFIGS
             config = TASK_CONFIGS[TaskDifficulty.HARD]
 
-            uptime_fallback = self._env.state.current_uptime if self._env else 0.0
+            uptime_fallback = self._env.state.current_uptime if self._env else 0.5
             current_uptime = _extract_metric(observation, "uptime", uptime_fallback)
             
             if self._env:
                 budget_remaining = self._env.state.budget_remaining
             else:
-                raw_used = _extract_metric(observation, "budget_used", 0.0)
+                raw_used = _extract_metric(observation, "budget_used", 0.1)
                 budget_remaining = config["budget"] - raw_used
                 
             if self._env:
@@ -99,7 +99,7 @@ class ScalingRubric(Rubric):
 
             return _clamp(0.5 * uptime_score + 0.3 * budget_score + 0.2 * speed_bonus)
         except Exception:
-            return 0.05
+            return 0.5
 
 class RollbackRubric(Rubric):
     def __init__(self, env: Any = None) -> None:
@@ -108,7 +108,7 @@ class RollbackRubric(Rubric):
 
     def forward(self, action: Any, observation: Any) -> float:
         try:
-            uptime_fallback = self._env.state.current_uptime if self._env else 0.0
+            uptime_fallback = self._env.state.current_uptime if self._env else 0.5
             current_uptime = _extract_metric(observation, "uptime", uptime_fallback)
             
             if self._env:
@@ -120,7 +120,7 @@ class RollbackRubric(Rubric):
             speed_bonus = max(0.0, 1.0 - step_ratio)
             return _clamp(0.7 * uptime_score + 0.3 * speed_bonus)
         except Exception:
-            return 0.05
+            return 0.5
 
 class SREGraderRubric(Rubric):
     """Facade for the Environment to dynamically grade based on actual current state."""
@@ -131,7 +131,7 @@ class SREGraderRubric(Rubric):
     def forward(self, action: Any, observation: Any) -> float:
         try:
             if not self._env:
-                return 0.05
+                return 0.5
             
             diff = getattr(self._env, "state", None)
             if diff:
@@ -145,6 +145,6 @@ class SREGraderRubric(Rubric):
                 return ScalingRubric(self._env).forward(action, observation)
             elif diff == TaskDifficulty.EXTREME:
                 return RollbackRubric(self._env).forward(action, observation)
-            return 0.05
+            return 0.5
         except Exception:
-            return 0.05
+            return 0.5
