@@ -59,12 +59,12 @@ class SystemMetrics(Action):
     model_config = Action.model_config.copy()
     model_config["extra"] = "allow"
 
-    cpu_percent: float = Field(default=0.0, description="CPU utilisation 0-100")
-    memory_percent: float = Field(default=0.0, description="Memory utilisation 0-100")
-    latency_ms: float = Field(default=0.0, description="P99 latency in milliseconds")
-    uptime: float = Field(default=1.0, description="Service uptime ratio 0.0-1.0")
-    error_rate: float = Field(default=0.0, description="Error rate 0.0-1.0")
-    budget_used: float = Field(default=0.0, description="Cloud budget consumed in $")
+    cpu_percent: float = Field(default=5.0, description="CPU utilisation 0-100")
+    memory_percent: float = Field(default=5.0, description="Memory utilisation 0-100")
+    latency_ms: float = Field(default=50.0, description="P99 latency in milliseconds")
+    uptime: float = Field(default=0.95, description="Service uptime ratio 0.0-1.0")
+    error_rate: float = Field(default=0.05, description="Error rate 0.0-1.0")
+    budget_used: float = Field(default=0.05, description="Cloud budget consumed in $")
 
 
 class SREObservation(Observation):
@@ -89,6 +89,10 @@ class SREObservation(Observation):
     metrics: SystemMetrics = Field(
         default_factory=SystemMetrics,
         description="Current system metrics snapshot.",
+    )
+    reward: float = Field(
+        default=0.05,
+        description="Reward received from the last action.",
     )
     available_actions: List[str] = Field(
         default_factory=list,

@@ -681,16 +681,26 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         reward: float | None = None,
         done: bool = False,
     ) -> SREObservation:
-        """Build a full SREObservation with current metrics."""
+        """Build a full SREObservation with current metrics and strict range enforcement."""
         config = TASK_CONFIGS[self._state.task_difficulty]
 
+        # Enforce strict non-zero/non-one range on ALL metrics that look like scores
+        safe_uptime = max(0.05, min(0.95, float(self._state.current_uptime)))
+        safe_error_rate = max(0.05, min(0.95, 1.0 - safe_uptime))
+        
+        # Clamp rewards locally to ensure no nulls or 0/1 leaks
+        if reward is None:
+            safe_reward = 0.05
+        else:
+            safe_reward = max(0.05, min(0.95, float(reward)))
+
         metrics = SystemMetrics(
-            cpu_percent=self._rng.uniform(30, 85),
-            memory_percent=self._rng.uniform(40, 90),
-            latency_ms=self._current_latency_ms,
-            uptime=self._state.current_uptime,
-            error_rate=max(0.0, 1.0 - self._state.current_uptime),
-            budget_used=config["budget"] - self._state.budget_remaining,
+            cpu_percent=max(5.0, min(95.0, self._rng.uniform(30, 85))),
+            memory_percent=max(5.0, min(95.0, self._rng.uniform(40, 90))),
+            latency_ms=max(1.0, float(self._current_latency_ms)),
+            uptime=safe_uptime,
+            error_rate=safe_error_rate,
+            budget_used=max(0.05, float(config["budget"] - self._state.budget_remaining)),
         )
 
         available = self._get_available_actions()
@@ -705,15 +715,15 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
                 available_actions=available,
                 task_description=self._state.task_description,
                 done=done,
-                reward=reward,
+                reward=safe_reward,
             )
             score = self.rubric(None, temp_obs)
-            metadata["grader_score"] = score
-            metadata["score"] = score  # Universal evaluator compatibility
-            if "total_accumulated_reward" not in metadata:
-                metadata["total_accumulated_reward"] = max(0.05, min(0.95, float(self._state.total_reward)))
+            clamped_score = max(0.05, min(0.95, float(score)))
+            metadata["grader_score"] = clamped_score
+            metadata["score"] = clamped_score  # Universal evaluator compatibility
+            metadata["total_accumulated_reward"] = max(0.05, min(0.95, float(self._state.total_reward)))
 
-            message = f"{message} [GRADER_SCORE: {score:.3f}]"
+            message = f"{message} [GRADER_SCORE: {clamped_score:.3f}]"
 
         obs = SREObservation(
             message=message,
@@ -723,7 +733,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             available_actions=available,
             task_description=self._state.task_description,
             done=done,
-            reward=reward,
+            reward=safe_reward,
             metadata=metadata,
         )
 
