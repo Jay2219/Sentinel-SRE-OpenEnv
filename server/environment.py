@@ -251,7 +251,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             message=message,
             logs=logs,
             success=success,
-            reward=self._clamp(step_reward),
+            reward=max(0.05, min(0.95, float(step_reward))),
             done=done,
         )
 
@@ -711,7 +711,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             metadata["grader_score"] = score
             metadata["score"] = score  # Universal evaluator compatibility
             if "total_accumulated_reward" not in metadata:
-                metadata["total_accumulated_reward"] = self._clamp(self._state.total_reward)
+                metadata["total_accumulated_reward"] = max(0.05, min(0.95, float(self._state.total_reward)))
 
             message = f"{message} [GRADER_SCORE: {score:.3f}]"
 

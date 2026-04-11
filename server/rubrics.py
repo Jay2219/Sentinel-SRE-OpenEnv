@@ -107,16 +107,22 @@ class SREGraderRubric(Rubric):
         self._env = env
 
     def forward(self, action: Any, observation: Any) -> float:
-        if not self._env:
+        try:
+            if not self._env:
+                return 0.05
+            
+            diff = getattr(self._env, "state", None)
+            if diff:
+                diff = diff.task_difficulty
+            
+            if diff == TaskDifficulty.EASY:
+                return PodRestartRubric(self._env).forward(action, observation)
+            elif diff == TaskDifficulty.MEDIUM:
+                return DBIndexRubric(self._env).forward(action, observation)
+            elif diff == TaskDifficulty.HARD:
+                return ScalingRubric(self._env).forward(action, observation)
+            elif diff == TaskDifficulty.EXTREME:
+                return RollbackRubric(self._env).forward(action, observation)
             return 0.05
-        
-        diff = self._env.state.task_difficulty
-        if diff == TaskDifficulty.EASY:
-            return PodRestartRubric(self._env).forward(action, observation)
-        elif diff == TaskDifficulty.MEDIUM:
-            return DBIndexRubric(self._env).forward(action, observation)
-        elif diff == TaskDifficulty.HARD:
-            return ScalingRubric(self._env).forward(action, observation)
-        elif diff == TaskDifficulty.EXTREME:
-            return RollbackRubric(self._env).forward(action, observation)
-        return 0.05
+        except Exception:
+            return 0.05
