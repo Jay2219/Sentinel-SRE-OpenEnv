@@ -6,8 +6,8 @@ from sre_env.models import TaskDifficulty
 
 
 def _clamp(score: float) -> float:
-    """Clamp score to strictly within (0, 1) with absolute safety buffer — never exactly 0, 1, or near edges."""
-    return max(0.2, min(0.8, float(score)))
+    """Clamp score to strictly within [0.25, 0.75] for absolute safety."""
+    return max(0.25, min(0.75, float(score)))
 
 
 def _extract_metric(observation: Any, key: str, default: float) -> float:

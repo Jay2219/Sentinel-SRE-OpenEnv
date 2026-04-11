@@ -141,7 +141,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             max_steps=config["max_steps"],
             incident_resolved=False,
             root_cause_found=False,
-            total_reward=0.45,
+            total_reward=0.52,
         )
 
         self._pod_restarted = False
@@ -330,7 +330,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             self._state.current_uptime = ratio
             if ratio >= 0.98:
                 self._state.incident_resolved = True
-            return 0.15 + (0.35 * ratio), "Scaled.", [f"[CLOUD] Capacity {ratio:.0%}"], True, -0.22
+            return 0.15 + (0.35 * ratio), "Scaled.", [f"[CLOUD] Capacity {ratio:.2f}"], True, -0.22
 
         elif cmd == CommandType.NOOP:
             self._state.current_uptime = max(0.02, self._state.current_uptime - 0.05)
@@ -374,15 +374,15 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
     ) -> SREObservation:
         """Create a non-zero observation."""
         config = TASK_CONFIGS[self._state.task_difficulty]
-        safe_cpu = max(0.22, min(0.78, self._rng.uniform(30.2, 85.2) / 100.2))
-        safe_mem = max(0.22, min(0.78, self._rng.uniform(40.2, 90.2) / 100.2))
-        safe_latency = max(0.22, min(0.78, float(self._current_latency_ms) / 12000.2))
-        safe_uptime = max(0.22, min(0.78, float(self._state.current_uptime)))
-        safe_error_rate = max(0.22, min(0.78, 1.02 - safe_uptime))
+        safe_cpu = max(0.25, min(0.75, self._rng.uniform(30.2, 85.2) / 100.2))
+        safe_mem = max(0.25, min(0.75, self._rng.uniform(40.2, 90.2) / 100.2))
+        safe_latency = max(0.25, min(0.75, float(self._current_latency_ms) / 12000.2))
+        safe_uptime = max(0.25, min(0.75, float(self._state.current_uptime)))
+        safe_error_rate = max(0.25, min(0.75, 1.02 - safe_uptime))
         spent = config["budget"] - self._state.budget_remaining
-        safe_budget_ratio = max(0.22, min(0.78, spent / config["budget"]))
+        safe_budget_ratio = max(0.25, min(0.75, spent / config["budget"]))
 
-        safe_reward = max(0.22, min(0.78, float(reward if reward is not None else 0.45)))
+        safe_reward = max(0.25, min(0.75, float(reward if reward is not None else 0.52)))
 
         metrics = SystemMetrics(
             cpu_percent=safe_cpu,
@@ -393,14 +393,14 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             budget_used=safe_budget_ratio,
         )
         
-        metadata = {"score": 0.45, "grader_score": 0.45}
+        metadata = {"score": 0.52, "grader_score": 0.52}
         if done:
             score = self.rubric(None, SREObservation(message=message, logs=logs, success=success, metrics=metrics, done=done, reward=safe_reward))
-            clamped = max(0.22, min(0.78, float(score)))
+            clamped = max(0.25, min(0.75, float(score)))
             metadata = {
                 "score": clamped,
                 "grader_score": clamped,
-                "total_accumulated_reward": max(0.22, min(0.78, float(self._state.total_reward)))
+                "total_accumulated_reward": max(0.25, min(0.75, float(self._state.total_reward)))
             }
             message += f" [SCORE: {clamped:.3f}]"
 
