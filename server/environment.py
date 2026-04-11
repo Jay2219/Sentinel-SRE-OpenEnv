@@ -114,7 +114,26 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         else:
             self._rng = random.Random()
 
-        difficulty = self._rng.choice(list(TaskDifficulty))
+        # Phase 2 validator compatibility: respect exact task requests
+        requested_task_name = kwargs.get("task")
+        if not requested_task_name and "options" in kwargs:
+            requested_task_name = kwargs["options"].get("task")
+
+        difficulty = None
+        if requested_task_name:
+            # Map task name back to difficulty
+            if "pod-restart" in requested_task_name:
+                difficulty = TaskDifficulty.EASY
+            elif "db-index" in requested_task_name:
+                difficulty = TaskDifficulty.MEDIUM
+            elif "dynamic-scaling" in requested_task_name:
+                difficulty = TaskDifficulty.HARD
+            elif "bad-deployment-rollback" in requested_task_name:
+                difficulty = TaskDifficulty.EXTREME
+
+        if difficulty is None:
+            difficulty = self._rng.choice(list(TaskDifficulty))
+
         config = TASK_CONFIGS[difficulty]
 
         self._state = SREState(
