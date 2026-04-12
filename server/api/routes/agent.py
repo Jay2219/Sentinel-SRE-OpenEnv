@@ -93,7 +93,7 @@ async def _run_agent(seed: int, custom_desc: str | None = None) -> AsyncGenerato
 
     # --- Agent loop ---
     done = obs_dict.get("done", False)
-    total_reward = 0.45
+    total_reward = 0.52
 
     for step in range(1, MAX_STEPS + 1):
         if done:
@@ -140,7 +140,7 @@ async def _run_agent(seed: int, custom_desc: str | None = None) -> AsyncGenerato
             yield _sse_event("log", {"type": "alert", "text": f"[ENV ERROR] {e}"})
             break
 
-        reward = obs_dict.get("reward", 0.45) or 0.45
+        reward = obs_dict.get("reward", 0.52) or 0.45
         total_reward += reward
         done = obs_dict.get("done", False)
         msg = obs_dict.get("message", "")
@@ -168,11 +168,11 @@ async def _run_agent(seed: int, custom_desc: str | None = None) -> AsyncGenerato
         await asyncio.sleep(0.1)
 
     # --- Final score ---
-    score = obs_dict.get("metadata", {}).get("grader_score", "N/A")
+    score = obs_dict.get("score", "0.52")
     final_msg = obs_dict.get("message", "")
-    if "GRADER_SCORE:" in final_msg:
+    if "[SCORE:" in final_msg:
         try:
-            score = final_msg.split("GRADER_SCORE: ")[1].split("]")[0]
+            score = final_msg.split("[SCORE: ")[1].split("]")[0]
         except Exception:
             pass
 

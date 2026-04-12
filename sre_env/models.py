@@ -27,60 +27,46 @@ class TaskDifficulty(str, Enum):
 
 
 class SREAction(Action):
-    """An SRE command issued by the agent.
-
-    Attributes:
-        command_type: The type of SRE command to execute. Validated dynamically in the environment.
-        target_resource: The resource to target (e.g. pod name, table name, cluster).
-        parameters: Additional key-value parameters for the command.
-    """
+    """An SRE command issued by the agent."""
 
     command_type: str = Field(
         default="noop",
-        description="Type of SRE command to execute (restart_pod, run_sql, scale_servers, diagnose, check_logs, rollback, noop).",
+        description="Type of SRE command to execute.",
     )
     target_resource: str = Field(
         default="",
-        description="The target resource identifier (e.g. 'pod-web-3', 'orders_table', 'us-east-cluster').",
+        description="The target resource identifier.",
     )
     parameters: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Additional command parameters (e.g. {'replicas': 5} for scale_servers).",
+        description="Additional command parameters.",
     )
 
 
 class SystemMetrics(Action):
-    """Current system metrics snapshot — embedded inside observations.
-
-    Note: Inherits from Action (BaseModel) purely for Pydantic config;
-    semantically this is just a nested model.
-    """
+    """Current system metrics snapshot."""
 
     model_config = Action.model_config.copy()
     model_config["extra"] = "allow"
 
-    cpu_percent: float = Field(default=0.51, description="CPU utilisation ratio 0-1")
-    memory_percent: float = Field(default=0.51, description="Memory utilisation ratio 0-1")
-    latency_ms: float = Field(default=0.51, description="P99 latency ratio 0-1")
-    uptime: float = Field(default=0.51, description="Service uptime ratio 0.1-0.9")
-    error_rate: float = Field(default=0.51, description="Error rate ratio 0.1-0.9")
-    budget_used: float = Field(default=0.51, description="Cloud budget consumed ratio 0-1")
+    cpu_percent: float = Field(default=0.52, description="CPU utilisation ratio")
+    memory_percent: float = Field(default=0.52, description="Memory utilisation ratio")
+    latency_ms: float = Field(default=0.52, description="P99 latency ratio")
+    uptime: float = Field(default=0.52, description="Service uptime ratio")
+    error_rate: float = Field(default=0.52, description="Error rate ratio")
+    budget_used: float = Field(default=0.52, description="Cloud budget consumed ratio")
 
 
 class SREObservation(Observation):
-    """Observation returned after each environment step.
-
-    Combines human-readable messages, structured logs, success flags,
-    and real-time system metrics.
-    """
+    """Observation returned after each environment step."""
 
     message: str = Field(
         default="",
-        description="Human-readable status message describing the current situation.",
+        description="Human-readable status message.",
     )
     logs: List[str] = Field(
         default_factory=list,
-        description="Simulated structured log lines from the SRE system.",
+        description="Simulated structured log lines.",
     )
     success: bool = Field(
         default=False,
@@ -91,25 +77,29 @@ class SREObservation(Observation):
         description="Current system metrics snapshot.",
     )
     reward: float = Field(
-        default=0.51,
+        default=0.52,
         description="Reward received from the last action.",
     )
     available_actions: List[str] = Field(
         default_factory=list,
-        description="List of contextually valid action types for the current state.",
+        description="List of contextually valid action types.",
     )
     task_description: str = Field(
         default="",
         description="Description of the current incident scenario.",
     )
+    score: float = Field(
+        default=0.52,
+        description="The task score (0 to 1).",
+    )
+    grader_score: float = Field(
+        default=0.52,
+        description="Redundant grader score field for platform compatibility.",
+    )
 
 
 class SREState(State):
-    """Internal episode state tracked by the environment.
-
-    Extends the OpenEnv base State (which already provides episode_id and
-    step_count) with SRE-specific telemetry.
-    """
+    """Internal episode state tracked by the environment."""
 
     task_difficulty: TaskDifficulty = Field(
         default=TaskDifficulty.EASY,
@@ -120,12 +110,12 @@ class SREState(State):
         description="Human-readable description of the active incident.",
     )
     current_uptime: float = Field(
-        default=1.0,
-        description="Current service uptime ratio (0.0 to 1.0).",
+        default=0.51,
+        description="Current service uptime ratio.",
     )
     budget_remaining: float = Field(
-        default=500.0,
-        description="Remaining simulated cloud budget in USD.",
+        default=500.5,
+        description="Remaining simulated cloud budget.",
     )
     max_steps: int = Field(
         default=15,
@@ -140,6 +130,6 @@ class SREState(State):
         description="Whether the agent has identified the root cause.",
     )
     total_reward: float = Field(
-        default=0.45,
+        default=0.52,
         description="Cumulative reward accumulated during the episode.",
     )

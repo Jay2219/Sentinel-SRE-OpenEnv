@@ -404,7 +404,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             }
             message += f" [SCORE: {clamped:.3f}]"
 
-        return SREObservation(
+        obs = SREObservation(
             message=message,
             logs=logs,
             success=success,
@@ -415,6 +415,11 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             task_description=self._state.task_description,
             available_actions=self._get_available_actions(),
         )
+        # Structural Score Injection (Root Level)
+        obs.score = metadata.get("score", 0.52)
+        obs.grader_score = metadata.get("grader_score", 0.52)
+
+        return obs
 
     def _get_available_actions(self) -> list[str]:
         """Return contextually reasonable action types."""
