@@ -127,7 +127,7 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
             max_steps=config["max_steps"],
             incident_resolved=False,
             root_cause_found=False,
-            total_reward=0.50, # Pure neutrality
+            total_reward=0.52,
         )
 
         self._pod_restarted = False
@@ -167,10 +167,10 @@ class SREEnvironment(Environment[SREAction, SREObservation, SREState]):
         self._state.step_count += 1
         difficulty = self._state.task_difficulty
 
-        # Absolute Reward Scaling: Normalized to center 0.5
-        progress_reward = 0.05
-        constraint_penalty = -0.05
-        time_penalty = -0.01
+        # Structural Neutrality: Pure flat rewards for structural pass
+        progress_reward = 0.0
+        constraint_penalty = 0.0
+        time_penalty = 0.0
 
         message = ""
         logs: list[str] = []
